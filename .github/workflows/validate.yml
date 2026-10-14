@@ -5,7 +5,7 @@ on:
       tag:
         description: Draft release tag to validate
         required: true
-        default: v0.1.0
+        default: v0.1.1
       expected_sha256:
         description: SHA-256 of the candidate ZIP
         required: true
@@ -31,10 +31,13 @@ jobs:
       - name: Run embedded runtime, model, safety tests and native window
         shell: pwsh
         run: |
-          $root = Join-Path $PWD 'extracted/EduititHamsterConnector-Windows-x64'
+          $parent = Join-Path $PWD 'OneDrive - 용인교육지원청/교사 로봇 체험'
+          New-Item -ItemType Directory -Path $parent -Force
+          Move-Item 'extracted/EduititHamsterConnector-Windows-x64' $parent
+          $root = Join-Path $parent 'EduititHamsterConnector-Windows-x64'
           & "$root/runtime/python.exe" "$root/qa_release.py"
           if ($LASTEXITCODE -ne 0) { throw 'Windows release QA failed' }
-          @{windows_execution_verified=$true; hardware_verified=$false; run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"; candidate_sha256=(Get-FileHash 'candidate/*.zip' -Algorithm SHA256).Hash.ToLower(); checked_at=(Get-Date).ToUniversalTime().ToString('o')} | ConvertTo-Json | Set-Content -Encoding utf8 WINDOWS_VERIFICATION.json
+          @{windows_execution_verified=$true; unicode_install_path_verified=$true; hardware_verified=$false; run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"; candidate_sha256=(Get-FileHash 'candidate/*.zip' -Algorithm SHA256).Hash.ToLower(); checked_at=(Get-Date).ToUniversalTime().ToString('o')} | ConvertTo-Json | Set-Content -Encoding utf8 WINDOWS_VERIFICATION.json
       - uses: actions/upload-artifact@v4
         with:
           name: windows-verification
