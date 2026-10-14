@@ -6,6 +6,9 @@ on:
         description: Draft release tag to validate
         required: true
         default: v0.1.0
+      expected_sha256:
+        description: SHA-256 of the candidate ZIP
+        required: true
 permissions:
   contents: read
 jobs:
@@ -16,14 +19,15 @@ jobs:
       - name: Download candidate
         shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          CANDIDATE_ZIP_URL: ${{ secrets.CANDIDATE_ZIP_URL }}
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
         run: |
-          gh release download "$env:RELEASE_TAG" --repo "${{ github.repository }}" --pattern '*.zip' --pattern 'SHA256SUMS.txt' --dir candidate
-          $line = (Get-Content candidate/SHA256SUMS.txt | Select-Object -First 1) -split '\s+', 2
-          $actual = (Get-FileHash "candidate/$($line[1])" -Algorithm SHA256).Hash.ToLower()
-          if ($actual -ne $line[0]) { throw 'Candidate checksum mismatch' }
-          Expand-Archive "candidate/$($line[1])" -DestinationPath extracted
+          New-Item -ItemType Directory candidate
+          $file = 'candidate/EduititHamsterConnector-Windows-x64.zip'
+          Invoke-WebRequest -Uri $env:CANDIDATE_ZIP_URL -OutFile $file
+          $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+          if ($actual -ne $env:EXPECTED_SHA256) { throw 'Candidate checksum mismatch' }
+          Expand-Archive $file -DestinationPath extracted
       - name: Run embedded runtime, model, safety tests and native window
         shell: pwsh
         run: |
