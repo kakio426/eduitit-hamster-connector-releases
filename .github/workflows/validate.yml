@@ -1,0 +1,37 @@
+name: Validate Windows companion
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Draft release tag to validate
+        required: true
+        default: v0.1.0
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download candidate
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          gh release download "$env:RELEASE_TAG" --repo "${{ github.repository }}" --pattern '*.zip' --pattern 'SHA256SUMS.txt' --dir candidate
+          $line = (Get-Content candidate/SHA256SUMS.txt | Select-Object -First 1) -split '\s+', 2
+          $actual = (Get-FileHash "candidate/$($line[1])" -Algorithm SHA256).Hash.ToLower()
+          if ($actual -ne $line[0]) { throw 'Candidate checksum mismatch' }
+          Expand-Archive "candidate/$($line[1])" -DestinationPath extracted
+      - name: Run embedded runtime, model, safety tests and native window
+        shell: pwsh
+        run: |
+          $root = Join-Path $PWD 'extracted/EduititHamsterConnector-Windows-x64'
+          & "$root/runtime/python.exe" "$root/qa_release.py"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows release QA failed' }
+          @{windows_execution_verified=$true; hardware_verified=$false; run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"; candidate_sha256=(Get-FileHash 'candidate/*.zip' -Algorithm SHA256).Hash.ToLower(); checked_at=(Get-Date).ToUniversalTime().ToString('o')} | ConvertTo-Json | Set-Content -Encoding utf8 WINDOWS_VERIFICATION.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-verification
+          path: WINDOWS_VERIFICATION.json
