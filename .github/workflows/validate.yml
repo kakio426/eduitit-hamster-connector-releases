@@ -5,7 +5,7 @@ on:
       tag:
         description: Draft release tag to validate
         required: true
-        default: v0.2.3
+        default: v0.5.0
       expected_sha256:
         description: SHA-256 of the candidate ZIP
         required: true
